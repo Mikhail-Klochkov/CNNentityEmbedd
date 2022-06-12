@@ -1,10 +1,6 @@
-import lmdb, logging, mwparserfromhell, multiprocessing, re, six, zlib
-from uuid import uuid1
-from functools import partial
+import lmdb, logging, re, zlib
 from pathlib import Path
-from contextlib import closing
 from six.moves import cPickle as pickle
-from multiprocessing.pool import Pool
 
 logger = logging.getLogger(__name__)
 STYLE_RE = re.compile("'''*")
