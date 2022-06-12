@@ -75,7 +75,7 @@ class DumpDB:
             return txn.stat()['entries']
 
 
-    def titles(self):
+    def wiki_title_generator(self):
         with self.env.begin(db=self.page_db) as txn:
             cur = txn.cursor()
             for key in cur.iternext(values=False):
