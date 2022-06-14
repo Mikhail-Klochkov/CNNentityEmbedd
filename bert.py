@@ -5,6 +5,7 @@ import torch.nn as nn
 from torch.functional import F
 from utils import scaled_dot_product
 
+
 class MultiHeadAttention(nn.Module):
 
 
@@ -50,7 +51,72 @@ class MultiHeadAttention(nn.Module):
         return out
 
 
-if __name__ == '__main__':
+class EncoderBlock(nn.Module):
+
+
+    def __init__(self, in_dim, num_heads, dim_feedforward, dropout=0.0):
+        super().__init__()
+        self.atten = MultiHeadAttention(in_dim, in_dim, num_heads)
+        self.linear_net = nn.Sequential(
+            nn.Linear(in_dim, dim_feedforward),
+            nn.Dropout(dropout),
+            nn.ReLU(inplace=True),
+            nn.Linear(dim_feedforward, in_dim))
+
+        self.norm1 = nn.LayerNorm(in_dim)
+        self.norm2 = nn.LayerNorm(in_dim)
+        self.dropout = nn.Dropout(dropout)
+
+
+    def forward(self, x, mask=None):
+        atten_outs = self.atten(x, mask=mask)
+        # dropout + rectified
+        x = x + self.dropout(atten_outs)
+        # LayerNormalization
+        x = self.norm1(x)
+
+        # MLP
+        linear_out = self.linear_net(x)
+        # dropout + rectified connection
+        x = x + self.dropout(linear_out)
+        # after attention and linear add LayerNorm
+        x = self.norm2(x)
+
+        return x
+
+
+class TransformerEncoder(nn.Module):
+
+    # args -> {in_dim, heads, dim_feedforward, dropout=0.0}
+    def __init__(self, num_layers, **args):
+        super().__init__()
+        self.layers = nn.ModuleList([EncoderBlock(**args) for _ in range(num_layers)])
+
+
+    def forward(self, x, mask=None):
+        for l in self.layers:
+            x = l(x, mask=mask)
+
+        return x
+
+
+    # mask well be generated in dataloader for all batch
+    def get_attention_maps(self, x, mask=None):
+        atten_maps = []
+        for l in self.layers:
+            if not hasattr(l, 'atten'):
+                raise ValueError('Incorrect behaviour!')
+            _, atten_map = l.atten(x, mask=mask, return_attention=True)
+            x = l(x)
+
+        return atten_maps
+
+
+def test_forward_MultiHeadAttention():
     mheadatt = MultiHeadAttention(100, emb_dim=80, num_heads=8)
     X = torch.randn(8, 72, 100)
     out = mheadatt.forward(X)
+
+
+if __name__ == '__main__':
+    mlhead = MultiHeadAttention(100, 100, 10)
