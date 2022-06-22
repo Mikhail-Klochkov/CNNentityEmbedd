@@ -1,6 +1,8 @@
-import logging, numpy as np
+import logging, numpy as np, torch
 
-from typing import Dict
+from torch.utils.data import Dataset
+from typing import Dict, Union
+
 from utils import check_path
 
 
@@ -11,8 +13,39 @@ class Alphabet():
 
 
     def __init__(self, id_to_char: Dict[int, str], char_to_id: Dict[str, int]):
+        assert len(id_to_char) == len(char_to_id), 'Incorrect behaviour'
         self.char_to_id = char_to_id
         self.id_to_char = id_to_char
+
+
+    def from_ids_to_string(self, ids):
+        return ''.join([self.get_c(id) for id in ids])
+
+    # not compound words need decode each
+    def from_one_hot_to_string(self, one_hot: Union[np.ndarray, torch.Tensor],
+                                     compound:bool=False,
+                                     string_check:str=None):
+        if torch.is_tensor(one_hot):
+            if one_hot.requires_grad:
+                one_hot = one_hot.detach().cpu().numpy()
+            else:
+                one_hot = one_hot.cpu().numpy()
+
+        chars = []
+        for pos_char in range(one_hot.shape[1]):
+            mask = np.where(one_hot[:, pos_char] == 1.)[0]
+            if len(mask) == 0:
+                if not compound:
+                    string = ''.join(chars)
+                    if string_check:
+                        assert string_check == string, f'not equal : {string} != {string_check}'
+                    return string
+                else:
+                    continue
+            assert len(mask) == 1, 'Incorrect behaviour. Should be one symbol!'
+            chars += [self.id_to_char[mask[0]]]
+
+        return ''.join(chars)
 
 
     def get_id(self, c:str):
@@ -21,11 +54,54 @@ class Alphabet():
         return self.char_to_id[c]
 
 
+    def __len__(self):
+        return len(self.id_to_char)
+
+
     def get_c(self, id:int):
         if id not in self.id_to_char:
             return None
         return self.id_to_char[id]
 
+
+class StringDatasetRuBert(Dataset):
+
+    def __init__(self):
+        pass
+
+
+class StringDatasetOneHot(Dataset):
+
+
+    def __init__(self, encodings, max_lenght, alphabet, return_string=False):
+        # this is list of lists
+        self.encodings = encodings
+        # max lenght of string
+        self.max_lenght = max_lenght
+        # should be class user object
+        # from id -> char, char -> id
+        self.alphabet = alphabet
+        # specific parameters
+        self.return_strings = return_string
+
+
+    # need extract one-hot-embedding or RuBert embedding representation
+    def __getitem__(self, idx):
+        # list if indeces (id <-> char)
+        # for each string is different lenght
+        string_repr = self.encodings[idx]
+        one_hot_emb = np.zeros((len(self.alphabet), self.max_lenght), dtype=np.float32)
+        one_hot_emb[string_repr, np.arange(len(string_repr))] = 1.
+        if self.return_strings:
+            # with string
+            string = ''.join([self.alphabet.get_c(id_char) for id_char in string_repr])
+            return one_hot_emb, string
+        else:
+            return one_hot_emb
+
+
+    def __len__(self):
+        return len(self.encodings)
 
 
 class StringDatasetBuilder():

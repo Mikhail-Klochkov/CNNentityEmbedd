@@ -1,8 +1,7 @@
+import torch, torch.nn as nn
 
-import torch
-
-import torch.nn as nn
 from torch.functional import F
+
 from utils import scaled_dot_product
 
 
