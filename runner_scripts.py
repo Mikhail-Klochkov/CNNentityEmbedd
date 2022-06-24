@@ -43,6 +43,23 @@ class RunnerScripts():
             print(one_hot_embs.shape)
 
 
+    @staticmethod
+    def run_forward_propogation(path_words, train_ratio=0.7, upper_bound_len=50, batch_size=128,
+                              limit=None):
+        one_hot, alphabet, max_lenght = RunnerScripts.build_one_hot_string_dataset(path_words,
+                                                                                   train_ratio,
+                                                                                   upper_bound_len,
+                                                                                   limit)
+        dataset = StringDatasetOneHot(one_hot, max_lenght, alphabet, return_string=True)
+        datalader = DataLoader(dataset, batch_size, shuffle=True)
+        cnnembedd = CNNString(lenght_alphabet=len(alphabet), max_lenght=max_lenght,
+                              dim_emb=50, num_channels=8, times=4, res_connections=True)
+        for one_hot_embs, strings in tqdm(datalader):
+            output = cnnembedd(one_hot_embs)
+            print(output.shape)
+
+
 if __name__ == '__main__':
     #RunnerScripts.build_one_hot_string_dataset(path_eng_words_article, limit=10000)
-    RunnerScripts.run_dataloader_string(path_eng_words_article)
+    #RunnerScripts.run_dataloader_string(path_eng_words_article)
+    RunnerScripts.run_forward_propogation(path_eng_words_article)
