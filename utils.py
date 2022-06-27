@@ -39,3 +39,17 @@ def scaled_dot_product(q, k, v, mask=None):
     values = torch.matmul(attention, v)
 
     return values, attention
+
+
+def get_number_torch_model_params(model):
+    assert hasattr(model, 'named_parameters'), f'Incorrect model: {model}'
+    table = {}
+    total_params = 0
+    for name, parameter in model.named_parameters():
+        if not parameter.requires_grad:
+            continue
+        params = parameter.numel()
+        table.update({name: params})
+        total_params += params
+
+    return table, total_params
